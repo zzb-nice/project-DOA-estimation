@@ -18,7 +18,7 @@ class ULA_DOA_dataset:
 
         # 阵元信息保存在类中
         # 1. 阵元信息(均匀线阵ULA)
-        self.M = 12  # 阵元数量
+        self.M = 8  # 阵元数量
         self.d = 0.1  # 阵元间距(一定要是半波长吗？)
         self.array = np.linspace(0., self.d * (self.M - 1), self.M)
 
@@ -48,9 +48,16 @@ class ULA_DOA_dataset:
 
         # 设置输入信号
         # signal = np.random.rand(*[num_signal, snap])  # 随机相位
-        signal = np.ones([num_signal, snap])
+        # 错错
+        # signal = np.ones([num_signal, snap])
+        # 时域采样频率怎么设置?
+        signal_time = np.linspace(0, snap - 1, snap) / (2 * snap)
+        signal_time = np.expand_dims(signal_time, 0).repeat(num_signal, axis=0)
+        # 加一个初始相位
+        signal_time = signal_time + np.random.rand(num_signal, 1) / 2
+
         # 用了snr的广播机制
-        signal = np.sqrt(10 ** (snr[:, np.newaxis] / 10)) * np.exp(1j * 2 * np.pi * f * signal)
+        signal = np.sqrt(10 ** (snr[:, np.newaxis] / 10)) * np.exp(1j * 2 * np.pi * f * signal_time)
         # 随机相位
         # signal = np.sqrt(10 ** (snr / 10)) * np.exp(1j * 2 * np.pi * signal)
         noise = (np.random.randn(*[self.M, snap]) + 1j * np.random.randn(*[self.M, snap])) / np.sqrt(2)
@@ -58,11 +65,11 @@ class ULA_DOA_dataset:
         array_X = A @ signal + noise
 
         # 将生成数据存入dataset
-        self.convariance_matrix.append(self.calculate_convariance_matrix(array_X,snap))
+        self.convariance_matrix.append(self.calculate_convariance_matrix(array_X))
         # 输入和目标都改成float32型,减小计算量
         self.y.append(theta.astype(np.float32))
         if self.if_save_array:
-            self.array_data_matirx.append(array_X)
+            self.array_data_matirx.append(array_X.astype(np.float32))
 
     def theta_stdandard(self):
         y = np.array(self.y)
@@ -81,9 +88,10 @@ class ULA_DOA_dataset:
         return self.convariance_matrix[item], self.y[item]
 
     @staticmethod
-    def calculate_convariance_matrix(array_x: np.ndarray, snap):
+    def calculate_convariance_matrix(array_x: np.ndarray):
         convariance_matrix = array_x @ (array_x.transpose().conj())
-        convariance_matrix = convariance_matrix/snap
+        snap = array_x.shape[-1]
+        convariance_matrix = convariance_matrix / snap
         # 后续加上画convariance_matrix图的函数
         # convariance_matrix只有对角线是实数,应该没问题
         # 算出来有点大。。忘记除snap了
@@ -95,7 +103,7 @@ class ULA_DOA_dataset:
         # convariance_vector = np.expand_dims(convariance_vector, axis=-1)
         # convariance_vector = np.concatenate([np.real(convariance_vector), np.imag(convariance_vector)], axis=-1)
         # 方式二.实部和虚部直接拼接起来,不保留对应关系
-        convariance_vector = np.concatenate([np.real(convariance_vector),np.imag(convariance_vector)],axis=0)
+        convariance_vector = np.concatenate([np.real(convariance_vector), np.imag(convariance_vector)], axis=0)
 
         # 预处理:用l2范数归一化
         # 静态方法中不能使用self,只能通过类来调用另一个静态方法
@@ -108,8 +116,8 @@ class ULA_DOA_dataset:
     @staticmethod
     def train_convariance_preprocess(convariance_vector):
         # 计算向量的l2范数,然后归一化
-        l2_norm = np.linalg.norm(convariance_vector,ord=2,keepdims=False)
-        return convariance_vector/l2_norm
+        l2_norm = np.linalg.norm(convariance_vector, ord=2, keepdims=False)
+        return convariance_vector / l2_norm
 
     def val_convariance_preprocess(self):
         pass
@@ -146,9 +154,105 @@ class array_Dataloader:
 
             # 添加对batch的处理
             data_batch = tuple(zip(*data_batch))
-            input_data,labels = np.array(data_batch[0]),np.array(data_batch[1])
+            input_data, labels = np.array(data_batch[0]), np.array(data_batch[1])
 
-            return input_data,labels
+            return input_data, labels
+
+
+def Create_one_signal(dataset: ULA_DOA_dataset, snr=-10, snap=128):
+    # 单个入射信号
+    # 生成0-45°对应的数据
+    # 共产生45*15=675组数据
+    start, end = 0, 45
+    # np.arange 不包含end,包含end-1
+    theta_range = np.arange(start, end, step=1)
+    # 一组角度样本产生若干组数据
+    repeat_array = 15
+    time_point_1 = time.time()
+    print('add single angle signal data...')
+    for theta in theta_range:
+        for i in range(repeat_array):
+            # 生成的角度带有随机性
+            # 把信噪比snr自动转化为np.ndarray
+            # np.array([1])用np.ons更方便
+            dataset.Create_DOA_data_ULA(1, theta + np.random.rand(1), snr=snr * np.ones(1), snap=snap)
+
+    time_point_2 = time.time()
+    print(f'time Consume:{time_point_2 - time_point_1}', end='  ')
+    print(f'{len(theta_range)}*{repeat_array}={len(theta_range) * repeat_array} data has been created')
+
+
+def Create_two_signal(dataset: ULA_DOA_dataset, snr=-10, snap=128):
+    # 两个入射信号
+    # 生成0-45°对应的数据
+    # 45*9-...=286
+    # 共产生 286*5=1430 组数据
+    start, end = 0, 45
+    # 数据间隔
+    delta_thetas_1 = np.array([2, 3, 4, 8, 12, 16, 20, 24, 30])
+    # 一组角度样本产生若干组数据
+    repeat_array = 5
+    time_point_1 = time.time()
+    print('add two angles signal data...')
+    count = 0  # 计数产生的数据量
+    # 遍历所有间隔数据
+    for theta_i in delta_thetas_1:
+            # 在数据间隔能实行时才加入数据
+            if start + theta_i <= end - 1:
+                # np.arange 不包含end,包含end-1
+                for theta in np.arange(start, end - theta_i, step=1):
+                    # 生成的角度带有随机性
+                    # 把信噪比snr自动转化为np.ndarray
+                    # theta = np.array([theta,theta+theta_i,theta+theta_i+theta_j])  错误,代码只支持一维np.adarray形式
+                    # 这样可以,theta截取之后是0维
+                    theta = np.array([theta, theta + theta_i])
+                    for i in range(repeat_array):
+                        # 每组角度样本产生多组数据
+                        dataset.Create_DOA_data_ULA(2, theta + np.random.rand(2), snr=snr * np.ones(2), snap=snap)
+
+                # 计数
+                count += len(np.arange(start, end - theta_i, step=1))
+
+    time_point_2 = time.time()
+    print(f'time Consume:{time_point_2 - time_point_1}', end='  ')
+    print(f'{count}*{repeat_array}={count * repeat_array} data has been created')
+
+
+def Create_three_signal(dataset: ULA_DOA_dataset,repeat_array=3, snr=-10, snap=128):
+    # 多个入射信号
+    # 生成0-45°对应的数据
+    # 共产生 *5= 组数据
+    start, end = 0, 45
+    # 数据间隔
+    delta_thetas_1 = np.array([2, 3, 4, 8, 12, 16, 20, 24, 30])
+    delta_thetas_2 = np.array([2, 3, 4, 8, 12, 16, 20, 24, 30])
+    # 一组角度样本产生若干组数据
+    repeat_array = repeat_array
+    time_point_1 = time.time()
+    print('add three angles signal data...')
+    count = 0  # 计数产生的数据量
+    # 遍历所有间隔数据
+    for theta_i in delta_thetas_1:
+        for theta_j in delta_thetas_2:
+            # 在数据间隔能实行时才加入数据
+            if start + theta_i + theta_j <= end - 1:
+                # np.arange 不包含end,包含end-1
+                for theta in np.arange(start, end - theta_i - theta_j, step=1):
+                    # 生成的角度带有随机性
+                    # 把信噪比snr自动转化为np.ndarray
+                    # theta = np.array([theta,theta+theta_i,theta+theta_i+theta_j])  错误,代码只支持一维np.adarray形式
+                    # 这样可以,theta截取之后是0维
+                    theta = np.array([theta, theta + theta_i, theta + theta_i + theta_j])
+                    for i in range(repeat_array):
+                        # 每组角度样本产生多组数据
+                        dataset.Create_DOA_data_ULA(3, theta + np.random.rand(3), snr=snr * np.ones(3), snap=snap)
+
+                # 计数
+                count += len(np.arange(start, end - theta_i - theta_j, step=1))
+
+    time_point_2 = time.time()
+    print(f'time Consume:{time_point_2 - time_point_1}', end='  ')
+    print(f'{count}*{repeat_array}={count * repeat_array} data has been created')
 
 
 def Create_DOA_data_1():
@@ -246,7 +350,7 @@ if __name__ == '__main__':
         # 用numpy生成,可调用函数更多,更方便
         for theta_1 in np.arange(-90.0, 89 - delta_theta, step=1):
             # 生成角度带有随机性,不采用整数角
-            theta = np.concatenate([theta_1 + np.random.rand(1), theta_1 + delta_theta + np.random.rand(1)],axis=0)
+            theta = np.concatenate([theta_1 + np.random.rand(1), theta_1 + delta_theta + np.random.rand(1)], axis=0)
             dataset.Create_DOA_data_ULA(len(theta), theta, snr=10 * np.random.rand(2), snap=512)
     time_point_2 = time.time()
     print('time consume:', time_point_2 - time_point_1, sep=' ')

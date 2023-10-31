@@ -1,11 +1,10 @@
 import numpy as np
-import torch
 import random
 import time
 
 
 # author-zbb
-# torch 版本
+# numpy 版本
 class ULA_DOA_dataset:
     def __init__(self, if_save_array: bool):
         # 保存协方差矩阵,阵列信号
@@ -78,7 +77,7 @@ class ULA_DOA_dataset:
         y_std = np.std(y)
 
         y = (y - y_mean) / y_std
-        # 注意最终要转换回列表类型
+        # 注意最终要转回列表类型
         self.y = list(y)
         return y_mean, y_std
 
@@ -155,13 +154,7 @@ class array_Dataloader:
 
             # 添加对batch的处理
             data_batch = tuple(zip(*data_batch))
-
-            # torch处理
-            input_data, labels = data_batch
-
-            input_data = torch.as_tensor(np.array(input_data))
-            labels = torch.as_tensor(np.array(labels))
-            # input_data = torch.stack(input_data, dim=0)
+            input_data, labels = np.array(data_batch[0]), np.array(data_batch[1])
 
             return input_data, labels
 
@@ -192,7 +185,8 @@ def Create_one_signal(dataset: ULA_DOA_dataset, snr=-10, snap=128):
 def Create_two_signal(dataset: ULA_DOA_dataset, snr=-10, snap=128):
     # 两个入射信号
     # 生成0-45°对应的数据
-    # 共产生 *5= 组数据
+    # 45*9-...=286
+    # 共产生 286*5=1430 组数据
     start, end = 0, 45
     # 数据间隔
     delta_thetas_1 = np.array([2, 3, 4, 8, 12, 16, 20, 24, 30])
@@ -224,7 +218,7 @@ def Create_two_signal(dataset: ULA_DOA_dataset, snr=-10, snap=128):
     print(f'{count}*{repeat_array}={count * repeat_array} data has been created')
 
 
-def Create_three_signal(dataset: ULA_DOA_dataset,repeat_array=3, snr=-10, snap=128):
+def Create_three_signal(dataset: ULA_DOA_dataset, snr=-10, snap=128):
     # 多个入射信号
     # 生成0-45°对应的数据
     # 共产生 *5= 组数据
@@ -233,7 +227,7 @@ def Create_three_signal(dataset: ULA_DOA_dataset,repeat_array=3, snr=-10, snap=1
     delta_thetas_1 = np.array([2, 3, 4, 8, 12, 16, 20, 24, 30])
     delta_thetas_2 = np.array([2, 3, 4, 8, 12, 16, 20, 24, 30])
     # 一组角度样本产生若干组数据
-    repeat_array = repeat_array
+    repeat_array = 5
     time_point_1 = time.time()
     print('add three angles signal data...')
     count = 0  # 计数产生的数据量

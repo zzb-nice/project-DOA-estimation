@@ -11,22 +11,40 @@ if __name__ == '__main__':
     # 1.生成训练集
     dataset = ULA_DOA_dataset(if_save_array=False)
 
-    # 生成数据
-    Create_one_signal(dataset, snr=-10, snap=128)
+    time_point_1 = time.time()
+    # 生成单个入射信号的训练数据
+    for theta_1 in np.arange(0, 44, step=1):
+        # 对每组角度样本生成多个目标
+        for i in range(15):
+            # 生成角度带有随机性
+            theta = theta_1 + np.random.rand(1)
+            # dataset.Create_DOA_data_ULA(len(theta), theta, snr=10 * np.random.rand(2), snap=512)
+            dataset.Create_DOA_data_ULA(len(theta), theta, snr=-10 * np.array([1]), snap=512)
 
     # 标准化输出角度y值
     theta_mean, theta_std = dataset.theta_stdandard()
+    time_point_2 = time.time()
+    print('time consume:', time_point_2 - time_point_1, sep=' ')
 
     print(len(dataset), dataset.convariance_matrix[0].shape, dataset.y[0])
 
     # 2.生成验证集
     val_dataset = ULA_DOA_dataset(if_save_array=False)
 
-    Create_one_signal(val_dataset,snr=-10,snap=128)
+    time_point_1 = time.time()
+
+    for theta_1 in np.arange(0, 44, step=1):
+        # 生成角度带有随机性
+        # 对每组角度样本生成10个目标
+        for i in range(15):
+            theta = theta_1 + np.random.rand(1)
+            # dataset.Create_DOA_data_ULA(len(theta), theta, snr=10 * np.random.rand(2), snap=512)
+            val_dataset.Create_DOA_data_ULA(len(theta), theta, snr=-10 * np.array([1]), snap=512)
 
     # 标准化输出角度y值,验证集不保存对应的均值和方差
     val_dataset.theta_stdandard()
-
+    time_point_2 = time.time()
+    print('time consume:', time_point_2 - time_point_1, sep=' ')
 
     # 调用sklearn的模型
     # model = LinearRegression()

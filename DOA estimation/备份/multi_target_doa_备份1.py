@@ -20,7 +20,7 @@ def train_test_one():
     total_train_loss = []
     total_val_loss = []
     # 1.生成训练集
-    for step, snr in enumerate(snrs):
+    for step,snr in enumerate(snrs):
         dataset = ULA_DOA_dataset(if_save_array=False)
 
         Create_three_signal(dataset, repeat_array=3, snr=snr, snap=snap)
@@ -35,9 +35,9 @@ def train_test_one():
         # model = LinearRegression()
         # model = RandomForestRegressor()
         # model = svm.SVR()
-        # model = svm.SVR(kernel='rbf', C=1.)
+        model = svm.SVR(kernel='rbf', C=1.)
         # model = svm.SVR(kernel='poly', C=1.,degree=5)
-        model = GradientBoostingRegressor(n_estimators=100, learning_rate=0.1, max_depth=5, random_state=0)  # , loss='ls'
+        # model = GradientBoostingRegressor(n_estimators=100, learning_rate=0.1, max_depth=8, random_state=0)  # , loss='ls'
         model = MultiOutputRegressor(model)
         X, y = np.array(dataset.convariance_matrix), np.array(dataset.y)
         model.fit(X, y)
@@ -49,7 +49,7 @@ def train_test_one():
         y = y * theta_std + theta_mean
 
         train_loss = mean_squared_error(y, y_hat, squared=False)
-        print(step, '.', 'train_RMSE:', train_loss)
+        print(step,'.','train_RMSE:', train_loss)
 
         X, y = np.array(val_dataset.convariance_matrix), np.array(val_dataset.y)
         model.fit(X, y)
@@ -60,7 +60,7 @@ def train_test_one():
         y = y * theta_std + theta_mean
 
         val_loss = mean_squared_error(y, y_hat, squared=False)
-        print(step, '.', 'val_RMSE:', val_loss)
+        print(step,'.','val_RMSE:', val_loss)
 
         # 3.保存相应的数据
         # train_loss 为shape:()的numpy数组
@@ -73,14 +73,14 @@ def train_test_one():
 
 def train_test_two():
     # 固定信噪比为-15db,快拍数按列表变化
-    snaps = [1, 2, 5, 10, 15, 20, 30]
+    snaps = [1, 5, 10, 15, 20, 30]
     snr = -15
 
     # 存储各信噪比情况下的训练,测试损失
     total_train_loss = []
     total_val_loss = []
     # 1.生成训练集
-    for step, snap in enumerate(snaps):
+    for step,snap in enumerate(snaps):
         dataset = ULA_DOA_dataset(if_save_array=False)
 
         Create_three_signal(dataset, repeat_array=3, snr=snr, snap=snap)
@@ -95,9 +95,9 @@ def train_test_two():
         # model = LinearRegression()
         # model = RandomForestRegressor()
         # model = svm.SVR()
-        # model = svm.SVR(kernel='rbf', C=1.)
+        model = svm.SVR(kernel='rbf', C=1.)
         # model = svm.SVR(kernel='poly', C=1.,degree=5)
-        model = GradientBoostingRegressor(n_estimators=100, learning_rate=0.1, max_depth=5, random_state=0)  # , loss='ls'
+        # model = GradientBoostingRegressor(n_estimators=100, learning_rate=0.1, max_depth=8, random_state=0)  # , loss='ls'
         model = MultiOutputRegressor(model)
         X, y = np.array(dataset.convariance_matrix), np.array(dataset.y)
         model.fit(X, y)
@@ -109,7 +109,7 @@ def train_test_two():
         y = y * theta_std + theta_mean
 
         train_loss = mean_squared_error(y, y_hat, squared=False)
-        print(step, '.', 'train_RMSE:', train_loss)
+        print(step,'.','train_RMSE:', train_loss)
 
         X, y = np.array(val_dataset.convariance_matrix), np.array(val_dataset.y)
         model.fit(X, y)
@@ -120,7 +120,7 @@ def train_test_two():
         y = y * theta_std + theta_mean
 
         val_loss = mean_squared_error(y, y_hat, squared=False)
-        print(step, '.', 'val_RMSE:', val_loss)
+        print(step,'.','val_RMSE:', val_loss)
 
         # 3.保存相应的数据
         # train_loss 为shape:()的numpy数组
@@ -131,48 +131,47 @@ def train_test_two():
     return total_train_loss, total_val_loss, snaps
 
 
-def snr_plot(train_loss, val_loss, snrs):
-    # 画图
-    plt.plot(snrs, train_loss, '-o', label='train_loss')
-    plt.plot(snrs, val_loss, '-o', label='val_loss')
-    # plt.scatter(snrs,train_loss)
-    plt.xlim(snrs[0], snrs[-1])
-    plt.xlabel('snr')
-    plt.ylabel('RMSE')
-    plt.grid()
-
-    # 显示图例
-    plt.legend()
-    # plt.show()
-    plt.savefig('result_snr.png')
-
-    information_save([train_loss, val_loss], 'result_snr.csv', header=None)
-
-
-def snap_plot(train_loss, val_loss, snaps):
-    # 画图
-    plt.plot(snaps, train_loss, '-o', label='train_loss')
-    plt.plot(snaps, val_loss, '-o', label='val_loss')
-    # plt.scatter(snrs,train_loss)
-    plt.xlim(snaps[0], snaps[-1])
-    plt.xlabel('snap')
-    plt.ylabel('RMSE')
-    plt.grid()
-
-    # 显示图例
-    plt.legend()
-    # plt.show()
-    plt.savefig('result_snap.png')
-
-    information_save([train_loss, val_loss], 'result_snap.csv', header=None)
-
-
 # author-zbb
 if __name__ == '__main__':
-    train_loss, val_loss, snrs = train_test_one()
+    # 1.生成训练集
+    dataset = ULA_DOA_dataset(if_save_array=False)
 
-    snr_plot(train_loss, val_loss, snrs)
+    Create_three_signal(dataset, repeat_array=3, snr=-10, snap=128)
+    theta_mean, theta_std = dataset.theta_stdandard()
 
-    train_loss, val_loss, snaps = train_test_two()
+    val_dataset = ULA_DOA_dataset(if_save_array=False)
 
-    snap_plot(train_loss, val_loss, snaps)
+    Create_three_signal(val_dataset, repeat_array=3, snr=-10, snap=128)
+    val_dataset.theta_stdandard()
+
+    # 调用sklearn的模型
+    # model = LinearRegression()
+    # model = RandomForestRegressor()
+    # model = svm.SVR()
+    model = svm.SVR(kernel='rbf', C=1.)
+    # model = svm.SVR(kernel='poly', C=1.,degree=5)
+    # model = GradientBoostingRegressor(n_estimators=100, learning_rate=0.1, max_depth=8, random_state=0)  # , loss='ls'
+    model = MultiOutputRegressor(model)
+    X, y = np.array(dataset.convariance_matrix), np.array(dataset.y)
+    model.fit(X, y)
+
+    y_hat = model.predict(X)
+
+    # 还原输出的归一化,目标和预测值都需要还原
+    y_hat = y_hat * theta_std + theta_mean
+    y = y * theta_std + theta_mean
+    # loss = np.sum((y - y_hat).transpose() @ (y - y_hat)) / (y.shape[0] * y.shape[1])  # 写错啦,狠狠记住！
+    # loss = np.sum((y - y_hat) * (y - y_hat)) / (y.shape[0] * y.shape[1])
+    loss = mean_squared_error(y, y_hat, squared=False)
+    print('train_RMSE:', loss)
+
+    X, y = np.array(val_dataset.convariance_matrix), np.array(val_dataset.y)
+    model.fit(X, y)
+
+    y_hat = model.predict(X)
+
+    y_hat = y_hat * theta_std + theta_mean
+    y = y * theta_std + theta_mean
+
+    loss = mean_squared_error(y, y_hat, squared=False)
+    print('val_RMSE:', loss)
